@@ -1,8 +1,10 @@
+import 'package:agenda/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Home extends StatelessWidget {
-  const Home({super.key});
+  Home({super.key});
+  final _auth = AuthService();
 
   Future<void> _checkOnboarding(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
@@ -22,7 +24,7 @@ class Home extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton(""
+            ElevatedButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/login');
               },
@@ -30,14 +32,15 @@ class Home extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/register');
+              onPressed: () async{
+                await _auth.signout();
               },
-              child: const Text("Cadastrar"),
+              child: const Text("Sair"),
             ),
           ],
         ),
       ),
     );
   }
+
 }

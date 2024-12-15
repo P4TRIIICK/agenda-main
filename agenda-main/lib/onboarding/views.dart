@@ -1,3 +1,4 @@
+import 'package:agenda/login.dart';
 import 'package:agenda/onboarding/items.dart';
 import 'package:flutter/material.dart';
 import 'package:agenda/Components/color.dart';
@@ -30,21 +31,14 @@ class _OnboardingViewState extends State<OnboardingView> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   TextButton(
+                      onPressed: () => pageController.previousPage(
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.easeIn),
+                      child: const Text("Voltar")),
+                  TextButton(
                       onPressed: () => pageController
                           .jumpToPage(controller.items.length - 1),
                       child: const Text("Pular")),
-                  SmoothPageIndicator(
-                    controller: pageController,
-                    count: controller.items.length,
-                    onDotClicked: (index) => pageController.animateToPage(index,
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeIn),
-                    effect: const WormEffect(
-                      dotHeight: 12,
-                      dotWidth: 12,
-                      activeDotColor: primaryColor,
-                    ),
-                  ),
                   TextButton(
                       onPressed: () => pageController.nextPage(
                           duration: const Duration(milliseconds: 600),
@@ -80,6 +74,19 @@ class _OnboardingViewState extends State<OnboardingView> {
                         style:
                             const TextStyle(color: Colors.grey, fontSize: 17),
                         textAlign: TextAlign.center),
+                    /*SizedBox(height: 90,),
+                    SmoothPageIndicator(
+                    controller: pageController,
+                    count: controller.items.length,
+                    onDotClicked: (index) => pageController.animateToPage(index,
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeIn),
+                    effect: const WormEffect(
+                      dotHeight: 12,
+                      dotWidth: 12,
+                      activeDotColor: primaryColor,
+                    ),
+                  ),*/
                   ],
                 ),
               );
@@ -101,7 +108,7 @@ class _OnboardingViewState extends State<OnboardingView> {
 
             if (!mounted) return;
             Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (context) => Home()));
+                context, MaterialPageRoute(builder: (context) => LoginPage()));
           },
           child: const Text(
             "Começar",
