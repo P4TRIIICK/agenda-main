@@ -1,5 +1,5 @@
 import 'package:agenda/services/auth_service.dart';
-import 'package:agenda/wrapper.dart';
+import 'package:agenda/services/wrapper.dart';
 import 'package:flutter/material.dart';
 
 class RegisterPage extends StatelessWidget {

@@ -1,4 +1,4 @@
-import 'package:agenda/wrapper.dart';
+import 'package:agenda/services/wrapper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:agenda/onboarding/views.dart';

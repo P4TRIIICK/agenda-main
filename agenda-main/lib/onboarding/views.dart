@@ -1,8 +1,8 @@
-import 'package:agenda/login.dart';
+import 'package:agenda/screen/login_screen.dart';
 import 'package:agenda/onboarding/items.dart';
 import 'package:flutter/material.dart';
 import 'package:agenda/Components/color.dart';
-import 'package:agenda/home.dart';
+import 'package:agenda/screen/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 

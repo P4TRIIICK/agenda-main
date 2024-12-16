@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:agenda/wrapper.dart';
+import 'package:agenda/services/wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:agenda/services/auth_service.dart';

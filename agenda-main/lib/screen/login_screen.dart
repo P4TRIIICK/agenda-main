@@ -1,7 +1,7 @@
 import 'package:agenda/services/auth_service.dart';
 import 'package:flutter/material.dart';
-import 'forgot_password.dart'; // Importando a tela de recuperação de senha
-import 'register.dart'; // Importando a tela de cadastro
+import 'forgot_password_screen.dart'; // Importando a tela de recuperação de senha
+import 'register_screen.dart'; // Importando a tela de cadastro
 
 class LoginPage extends StatefulWidget {
   LoginPage({super.key});

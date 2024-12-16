@@ -1,6 +1,6 @@
-import 'package:agenda/home.dart';
-import 'package:agenda/login.dart';
-import 'package:agenda/verification_screen.dart';
+import 'package:agenda/screen/home_screen.dart';
+import 'package:agenda/screen/login_screen.dart';
+import 'package:agenda/screen/verification_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -19,7 +19,7 @@ class Wrapper extends StatelessWidget {
           return LoginPage();
         }else{
           if(snapshot.data?.emailVerified == true){
-            return Home();
+            return HomeScreen();
           }else{
             return EmailVerificationPage();
           }
