@@ -13,13 +13,28 @@ class AuthService {
     }
   }
 
-  Future<void> sendPasswordResetLink(String email)async{
-    try{
+  Future<void> sendPasswordResetLink(String email) async {
+    try {
       await _auth.sendPasswordResetEmail(email: email);
-    }catch(e){
-      print(e.toString());
+    } on FirebaseAuthException catch (e) {
+      throw e;
+    } catch (e) {
+      log("Erro desconhecido ao enviar e-mail de recuperação: $e");
+      rethrow; 
     }
   }
+
+  Future<bool> emailExists(String email) async {
+    try {
+      final signInMethods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
+      return signInMethods.isNotEmpty;
+    } on FirebaseAuthException catch (e) {
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
 
   Future<User?> createUserWithEmailAndPassword(String email, String password)async{
 

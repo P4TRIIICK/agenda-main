@@ -1,22 +1,19 @@
-import 'package:agenda/services/auth_service.dart';
 import 'package:flutter/material.dart';
-import 'forgot_password_screen.dart'; // Importando a tela de recuperação de senha
-import 'register_screen.dart'; // Importando a tela de cadastro
+import 'package:agenda/screen/forgot_password_screen.dart';
+import 'package:agenda/screen/register_screen.dart';
+import 'package:agenda/utils/login_utils.dart';
 
 class LoginPage extends StatefulWidget {
-  LoginPage({super.key});
+  const LoginPage({super.key});
 
   @override
   _LoginPageState createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // Controladores de texto para email e senha
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _auth = AuthService();
 
-  // Dispose para limpar os controladores quando o widget for destruído
   @override
   void dispose() {
     _email.dispose();
@@ -24,11 +21,34 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  Future<void> _login() async {
+    final email = _email.text.trim();
+    final pass = _password.text.trim();
+
+    final result = await LoginUtils.attemptLogin(email, pass);
+
+    if (result == null) {
+      // Login deu certo
+      // Navega ou fecha a tela atual (depende do seu fluxo)
+      Navigator.pop(context);
+      // Ou, se quiser ir direto para HomeScreen:
+      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (ctx) => HomeScreen()));
+    } else {
+      // result contém mensagem de erro
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result),
+          backgroundColor: Colors.red, 
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        body: SingleChildScrollView( // Permite rolar o conteúdo
+        body: SingleChildScrollView(
           child: Container(
             margin: const EdgeInsets.all(24),
             child: Column(
@@ -49,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  _header(context) {
+  Widget _header(context) {
     return const Column(
       children: [
         Text(
@@ -61,7 +81,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  _inputField(context) {
+  Widget _inputField(context) {
     return Column(
       children: [
         TextField(
@@ -69,8 +89,9 @@ class _LoginPageState extends State<LoginPage> {
           decoration: InputDecoration(
             hintText: "Email",
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide.none),
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
             fillColor: Theme.of(context).primaryColor.withOpacity(0.1),
             filled: true,
             prefixIcon: const Icon(Icons.person),
@@ -82,8 +103,9 @@ class _LoginPageState extends State<LoginPage> {
           decoration: InputDecoration(
             hintText: "Senha",
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide.none),
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
             fillColor: Theme.of(context).primaryColor.withOpacity(0.1),
             filled: true,
             prefixIcon: const Icon(Icons.lock),
@@ -94,7 +116,7 @@ class _LoginPageState extends State<LoginPage> {
         SizedBox(
           width: 250,
           child: ElevatedButton(
-            onPressed: () => _login(), 
+            onPressed: _login,
             style: ElevatedButton.styleFrom(
               shape: const StadiumBorder(),
               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -111,39 +133,39 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  _forgotPassword(context) {
+  Widget _forgotPassword(context) {
     return TextButton(
       onPressed: () {
-        // Redireciona para a tela de recuperação de senha
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => ForgotPasswordPage()),
         );
       },
-      child: const Text("Esqueceu a senha?", style: TextStyle(color: Colors.blue)),
+      child: const Text(
+        "Esqueceu a senha?",
+        style: TextStyle(color: Colors.blue),
+      ),
     );
   }
 
-  _signup(context) {
+  Widget _signup(context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Text("Não tem uma conta?"),
         TextButton(
           onPressed: () {
-            // Redireciona para a tela de cadastro
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => RegisterPage()),
             );
           },
-          child: const Text("Cadastre-se", style: TextStyle(color: Colors.blue)),
+          child: const Text(
+            "Cadastre-se",
+            style: TextStyle(color: Colors.blue),
+          ),
         ),
       ],
     );
-  }
-
-  _login() async{
-    await _auth.loginUserWithEmailAndPassword(_email.text, _password.text);
   }
 }

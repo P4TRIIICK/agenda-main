@@ -1,5 +1,5 @@
 enum Status {
   pendente,
-  emProgresso,
+  executando,
   concluida,
 }

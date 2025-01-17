@@ -1,20 +1,59 @@
-import 'package:agenda/services/auth_service.dart';
-import 'package:agenda/services/wrapper.dart';
 import 'package:flutter/material.dart';
+import 'package:agenda/utils/register_utils.dart';
+import 'package:agenda/services/wrapper.dart';
 
-class RegisterPage extends StatelessWidget {
-  RegisterPage({super.key});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({Key? key}) : super(key: key);
 
-  final _auth = AuthService();
-  //final _name = TextEditingController();
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
 
+  bool _isLoading = false;
+
+  Future<void> _signup() async {
+    setState(() => _isLoading = true);
+
+    final result = await RegisterUtils.attemptRegister(
+      _name.text.trim(),
+      _email.text.trim(),
+      _password.text.trim(),
+    );
+
+    setState(() => _isLoading = false);
+
+    if (result == null) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const Wrapper()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Cadastro")),
-      body: SingleChildScrollView( // Adiciona a rolagem
+      appBar: AppBar(
+        title: const Text("Cadastro"),
+      ),
+      body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -24,21 +63,26 @@ class RegisterPage extends StatelessWidget {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-              const TextField(
-                decoration:  InputDecoration(
+
+              TextField(
+                controller: _name,
+                decoration: const InputDecoration(
                   hintText: "Nome",
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 20),
+
               TextField(
                 controller: _email,
+                keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
                   hintText: "E-mail",
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 20),
+
               TextField(
                 controller: _password,
                 decoration: const InputDecoration(
@@ -48,23 +92,26 @@ class RegisterPage extends StatelessWidget {
                 obscureText: true,
               ),
               const SizedBox(height: 40),
+
               SizedBox(
                 width: 200,
                 child: ElevatedButton(
-                  onPressed: () => _signup(context),
+                  onPressed: _isLoading ? null : _signup,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text("Cadastrar"),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("Cadastrar"),
                 ),
               ),
+              const SizedBox(height: 8),
+
               SizedBox(
                 width: 200,
                 child: TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: () => Navigator.pop(context),
                   child: const Text(
                     "Já tem uma conta? Faça Login",
                     style: TextStyle(color: Colors.blue, fontSize: 10),
@@ -76,10 +123,5 @@ class RegisterPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  _signup(BuildContext context) async {
-    await _auth.createUserWithEmailAndPassword( _email.text, _password.text);
-    Navigator.pushReplacement(context, MaterialPageRoute(builder:(context) => const Wrapper()));
   }
 }

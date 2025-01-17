@@ -1,7 +1,9 @@
+import 'package:agenda/screen/home_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/tarefa.dart';
 import '../models/prioridade.dart';
 import '../models/status.dart';
+import '../models/categoria.dart';
 import '../services/database_service.dart';
 
 class AddTaskScreen extends StatefulWidget {
@@ -12,20 +14,61 @@ class AddTaskScreen extends StatefulWidget {
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores e valores do formulário
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _descricaoController = TextEditingController();
-  DateTime _dataCriacao = DateTime.now();
+  final DateTime _dataCriacao = DateTime.now();
+
   DateTime? _dataVencimento;
   Prioridade _prioridadeSelecionada = Prioridade.media;
-  Status _statusSelecionado = Status.pendente;
-  String _categoriaSelecionada = "Geral";
+  final Status _statusSelecionado = Status.pendente;
+  Categoria _categoriaSelecionada = Categoria.trabalho;
 
-  // Serviço de banco de dados
+  // Tipo de recorrência -> null, "semanal" ou "mensal"
+  String? tipoRecorrencia;
+
+  // Dias selecionados para semanal
+  List<bool> diasSelecionados = List.filled(7, false);
+
+  // Dia selecionado para mensal
+  int? _diaDoMesSelecionado;
+
   final DatabaseService _dbService = DatabaseService.instance;
+
+  /// Abre o DatePicker para selecionar data
+  Future<void> _selecionarDataVencimento(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _dataVencimento ?? DateTime.now(),
+      firstDate: DateTime(2022),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && picked != _dataVencimento) {
+      setState(() {
+        _dataVencimento = picked;
+      });
+    }
+  }
 
   Future<void> _salvarTarefa() async {
     if (_formKey.currentState!.validate()) {
+      // Monta lista de dias recorrentes se for semanal
+      List<int>? diasRecorrentes = tipoRecorrencia == 'semanal'
+          ? diasSelecionados
+              .asMap()
+              .entries
+              .where((entry) => entry.value)
+              .map((entry) => entry.key)
+              .toList()
+          : null;
+
+      // Se for mensal, salvamos o dia do mês
+      int? diaDoMes;
+      if (tipoRecorrencia == 'mensal' && _diaDoMesSelecionado != null) {
+        diaDoMes = _diaDoMesSelecionado;
+        final now = DateTime.now();
+        _dataVencimento = DateTime(now.year, now.month, diaDoMes!);
+      }
+
       final novaTarefa = Tarefa(
         nome: _nomeController.text,
         descricao: _descricaoController.text,
@@ -34,122 +77,293 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         prioridade: _prioridadeSelecionada,
         status: _statusSelecionado,
         categoria: _categoriaSelecionada,
+        tipoRecorrencia: tipoRecorrencia,
+        diasRecorrentes: diasRecorrentes,
+        diaDoMes: diaDoMes,
       );
 
-      // Salva no banco de dados
       await _dbService.addTask(novaTarefa);
 
-      // Voltar para a tela anterior
-      Navigator.of(context).pop();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Adicionar Tarefa'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextFormField(
-                  controller: _nomeController,
-                  decoration: InputDecoration(labelText: 'Nome da Tarefa'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, insira o nome da tarefa.';
-                    }
-                    return null;
-                  },
-                ),
-                TextFormField(
-                  controller: _descricaoController,
-                  decoration: InputDecoration(labelText: 'Descrição'),
-                ),
-                SizedBox(height: 16),
-                Text('Data de Vencimento:'),
-                Row(
+      backgroundColor: Colors.white, // Fundo branco
+      body: Stack(
+        children: [
+          Form(
+            key: _formKey, // importante para validadores
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _dataVencimento != null
-                          ? '${_dataVencimento!.day}/${_dataVencimento!.month}/${_dataVencimento!.year}'
-                          : 'Nenhuma data selecionada',
+                    const SizedBox(height: 80),
+                    const Text(
+                      "Nova Tarefa",
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     ),
-                    Spacer(),
-                    TextButton(
-                      onPressed: () async {
-                        DateTime? selectedDate = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime(2100),
-                        );
-                        if (selectedDate != null) {
-                          setState(() {
-                            _dataVencimento = selectedDate;
-                          });
-                        }
+                    const SizedBox(height: 10),
+                    const Text(
+                      "Adicione uma nova tarefa para seu menu principal",
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // Nome
+                    TextFormField(
+                      decoration: InputDecoration(
+                        labelText: "Nome da Tarefa",
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      controller: _nomeController,
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Informe um nome' : null,
+                    ),
+                    const SizedBox(height: 20),
+
+                    Row(
+                      children: [
+                        // Prioridade
+                        Expanded(
+                          flex: 1,
+                          child: DropdownButtonFormField<Prioridade>(
+                            decoration: InputDecoration(
+                              labelText: "Prioridade",
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            value: _prioridadeSelecionada,
+                            items: Prioridade.values.map((prioridade) {
+                              return DropdownMenuItem(
+                                value: prioridade,
+                                child: Text(
+                                  prioridade.toString().split('.').last,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _prioridadeSelecionada = value!;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Categoria
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<Categoria>(
+                            decoration: InputDecoration(
+                              labelText: "Categoria",
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            value: _categoriaSelecionada,
+                            items: Categoria.values.map((categoria) {
+                              return DropdownMenuItem(
+                                value: categoria,
+                                child: Text(
+                                  categoria.toString().split('.').last,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _categoriaSelecionada = value!;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Descrição
+                    TextFormField(
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: "Descrição...",
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      controller: _descricaoController,
+                    ),
+                    const SizedBox(height: 30),
+
+                    // Recorrência
+                    DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: "Recorrência",
+                        filled: true,
+                        fillColor: Colors.grey[100],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      value: tipoRecorrencia,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('Nenhuma')),
+                        DropdownMenuItem(value: 'semanal', child: Text('Semanal')),
+                        DropdownMenuItem(value: 'mensal', child: Text('Mensal')),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          tipoRecorrencia = value;
+                          // Se escolher "Nenhuma", limpamos data ou resets
+                          if (tipoRecorrencia == null) {
+                            _dataVencimento = null;
+                          }
+                        });
                       },
-                      child: Text('Selecionar Data'),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Se for "Nenhuma" => mostre o date picker
+                    if (tipoRecorrencia == null)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("Selecione a data de vencimento:"),
+                          const SizedBox(height: 10),
+                          InkWell(
+                            onTap: () => _selecionarDataVencimento(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                _dataVencimento == null
+                                    ? 'Nenhuma data selecionada'
+                                    : 'Data: ${_dataVencimento!.day}/${_dataVencimento!.month}/${_dataVencimento!.year}',
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    // Se for "semanal" => mostre chips (ou checkboxes)
+                    else if (tipoRecorrencia == 'semanal')
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("Selecione os dias da semana:"),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 5.0,
+                            runSpacing: 5.0,
+                            children: List.generate(7, (index) {
+                              final List<String> diasAbreviados = [
+                                'Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'
+                              ];
+                              return FilterChip(
+                                label: Text(diasAbreviados[index]),
+                                selected: diasSelecionados[index],
+                                onSelected: (bool value) {
+                                  setState(() {
+                                    diasSelecionados[index] = value;
+                                  });
+                                },
+                              );
+                            }),
+                          ),
+                        ],
+                      )
+                    // Se for "mensal" => mostre o dropdown de dia do mês
+                    else if (tipoRecorrencia == 'mensal')
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("Selecione o dia do mês (1 - 31):"),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<int>(
+                            value: _diaDoMesSelecionado,
+                            hint: const Text("Dia do mês"),
+                            items: List.generate(31, (index) => index + 1)
+                                .map((dia) => DropdownMenuItem(
+                                      value: dia,
+                                      child: Text(dia.toString()),
+                                    ))
+                                .toList(),
+                            onChanged: (valor) {
+                              setState(() {
+                                _diaDoMesSelecionado = valor;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 30),
+
+                    // Botão Adicionar
+                    Center(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: _salvarTarefa,
+                        child: const Text(
+                          "Adicionar",
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                DropdownButtonFormField<Prioridade>(
-                  value: _prioridadeSelecionada,
-                  decoration: InputDecoration(labelText: 'Prioridade'),
-                  items: Prioridade.values.map((Prioridade prioridade) {
-                    return DropdownMenuItem(
-                      value: prioridade,
-                      child: Text(prioridade.toString().split('.').last),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _prioridadeSelecionada = value!;
-                    });
-                  },
-                ),
-                DropdownButtonFormField<Status>(
-                  value: _statusSelecionado,
-                  decoration: InputDecoration(labelText: 'Status'),
-                  items: Status.values.map((Status status) {
-                    return DropdownMenuItem(
-                      value: status,
-                      child: Text(status.toString().split('.').last),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _statusSelecionado = value!;
-                    });
-                  },
-                ),
-                TextFormField(
-                  decoration: InputDecoration(labelText: 'Categoria'),
-                  initialValue: _categoriaSelecionada,
-                  onChanged: (value) {
-                    setState(() {
-                      _categoriaSelecionada = value;
-                    });
-                  },
-                ),
-                SizedBox(height: 20),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: _salvarTarefa,
-                    child: Text('Salvar Tarefa'),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
+
+          // Botão de voltar
+          Positioned(
+            top: 40,
+            left: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_back, color: Colors.black),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
