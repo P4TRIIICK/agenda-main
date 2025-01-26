@@ -1,10 +1,10 @@
-import 'package:agenda/screen/home_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/tarefa.dart';
 import '../models/prioridade.dart';
 import '../models/status.dart';
 import '../models/categoria.dart';
 import '../services/database_service.dart';
+import 'package:agenda/utils/add_task_utils.dart';
 
 class AddTaskScreen extends StatefulWidget {
   @override
@@ -16,89 +16,104 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _descricaoController = TextEditingController();
-  final DateTime _dataCriacao = DateTime.now();
-
-  DateTime? _dataVencimento;
-  Prioridade _prioridadeSelecionada = Prioridade.media;
-  final Status _statusSelecionado = Status.pendente;
-  Categoria _categoriaSelecionada = Categoria.trabalho;
-
-  // Tipo de recorrência -> null, "semanal" ou "mensal"
-  String? tipoRecorrencia;
-
-  // Dias selecionados para semanal
-  List<bool> diasSelecionados = List.filled(7, false);
-
-  // Dia selecionado para mensal
-  int? _diaDoMesSelecionado;
-
+  
   final DatabaseService _dbService = DatabaseService.instance;
 
-  /// Abre o DatePicker para selecionar data
-  Future<void> _selecionarDataVencimento(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _dataVencimento ?? DateTime.now(),
-      firstDate: DateTime(2022),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null && picked != _dataVencimento) {
-      setState(() {
-        _dataVencimento = picked;
-      });
-    }
-  }
+  DateTime? _dataCriacao = DateTime.now();
+  DateTime? _dataVencimento;
+  Prioridade? _prioridadeSelecionada; 
+  Status _statusSelecionado = Status.pendente;
+  Categoria? _categoriaSelecionada;   
+  String? tipoRecorrencia;            
+  List<bool> diasSelecionados = List.filled(7, false); 
+  int? _diaDoMesSelecionado;
+
+  bool _isSaving = false;
 
   Future<void> _salvarTarefa() async {
-    if (_formKey.currentState!.validate()) {
-      // Monta lista de dias recorrentes se for semanal
-      List<int>? diasRecorrentes = tipoRecorrencia == 'semanal'
-          ? diasSelecionados
-              .asMap()
-              .entries
-              .where((entry) => entry.value)
-              .map((entry) => entry.key)
-              .toList()
-          : null;
+    final error = AddTaskUtils.validateTask(
+      name: _nomeController.text,
+      prioridade: _prioridadeSelecionada,
+      categoria: _categoriaSelecionada,
+      tipoRecorrencia: tipoRecorrencia,
+      dataVencimento: _dataVencimento,
+      diasSelecionados: diasSelecionados,
+      diaDoMes: _diaDoMesSelecionado,
+    );
 
-      // Se for mensal, salvamos o dia do mês
-      int? diaDoMes;
-      if (tipoRecorrencia == 'mensal' && _diaDoMesSelecionado != null) {
-        diaDoMes = _diaDoMesSelecionado;
-        final now = DateTime.now();
-        _dataVencimento = DateTime(now.year, now.month, diaDoMes!);
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.red),
+      );
+      return; 
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      List<int>? diasRecorrentes;
+      if (tipoRecorrencia == 'semanal') {
+        diasRecorrentes = diasSelecionados
+            .asMap()
+            .entries
+            .where((entry) => entry.value)
+            .map((entry) => entry.key)
+            .toList();
       }
 
       final novaTarefa = Tarefa(
         nome: _nomeController.text,
         descricao: _descricaoController.text,
-        dataCriacao: _dataCriacao,
+        dataCriacao: _dataCriacao!,
         dataVencimento: _dataVencimento,
-        prioridade: _prioridadeSelecionada,
+        prioridade: _prioridadeSelecionada ?? Prioridade.media,
         status: _statusSelecionado,
-        categoria: _categoriaSelecionada,
+        categoria: _categoriaSelecionada ?? Categoria.casa,
         tipoRecorrencia: tipoRecorrencia,
         diasRecorrentes: diasRecorrentes,
-        diaDoMes: diaDoMes,
+        diaDoMes: _diaDoMesSelecionado,
       );
 
       await _dbService.addTask(novaTarefa);
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+    } catch (e) {
+      print("Erro ao salvar tarefa: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erro ao salvar tarefa.'),
+          backgroundColor: Colors.red,
+        ),
       );
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _selecionarDataVencimento(BuildContext context) async {
+  final DateTime? picked = await showDatePicker(
+    context: context,
+    initialDate: _dataVencimento ?? DateTime.now(),
+    firstDate: DateTime(2022),
+    lastDate: DateTime(2100),
+  );
+  if (picked != null && picked != _dataVencimento) {
+    setState(() {
+      _dataVencimento = picked;
+    });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Fundo branco
+      backgroundColor: Colors.white, 
       body: Stack(
         children: [
           Form(
-            key: _formKey, // importante para validadores
+            key: _formKey, 
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: SingleChildScrollView(
@@ -117,7 +132,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     ),
                     const SizedBox(height: 30),
 
-                    // Nome
                     TextFormField(
                       decoration: InputDecoration(
                         labelText: "Nome da Tarefa",
@@ -136,7 +150,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
                     Row(
                       children: [
-                        // Prioridade
                         Expanded(
                           flex: 1,
                           child: DropdownButtonFormField<Prioridade>(
@@ -167,7 +180,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         ),
                         const SizedBox(width: 10),
 
-                        // Categoria
                         Expanded(
                           flex: 2,
                           child: DropdownButtonFormField<Categoria>(
@@ -200,7 +212,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Descrição
                     TextFormField(
                       maxLines: 4,
                       decoration: InputDecoration(
@@ -216,7 +227,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     ),
                     const SizedBox(height: 30),
 
-                    // Recorrência
                     DropdownButtonFormField<String>(
                       decoration: InputDecoration(
                         labelText: "Recorrência",
@@ -236,7 +246,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       onChanged: (value) {
                         setState(() {
                           tipoRecorrencia = value;
-                          // Se escolher "Nenhuma", limpamos data ou resets
                           if (tipoRecorrencia == null) {
                             _dataVencimento = null;
                           }
@@ -245,7 +254,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Se for "Nenhuma" => mostre o date picker
                     if (tipoRecorrencia == null)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,7 +278,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           ),
                         ],
                       )
-                    // Se for "semanal" => mostre chips (ou checkboxes)
                     else if (tipoRecorrencia == 'semanal')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +304,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           ),
                         ],
                       )
-                    // Se for "mensal" => mostre o dropdown de dia do mês
                     else if (tipoRecorrencia == 'mensal')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,7 +329,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       ),
                     const SizedBox(height: 30),
 
-                    // Botão Adicionar
                     Center(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
@@ -347,7 +352,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             ),
           ),
 
-          // Botão de voltar
           Positioned(
             top: 40,
             left: 16,

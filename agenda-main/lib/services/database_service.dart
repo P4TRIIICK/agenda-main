@@ -46,6 +46,21 @@ class DatabaseService {
     ''');
   }
 
+  Future<int> updateTask(Tarefa tarefa) async {
+    final db = await database;
+    return db.update(
+      'tasks',
+      tarefa.toMap(),
+      where: 'id = ?',
+      whereArgs: [tarefa.id],
+    );
+  }
+
+  Future<int> deleteTask(int id) async {
+  final db = await database;
+  return db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+  }
+
   // Se alguém já tiver a versão antiga
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
@@ -65,12 +80,6 @@ class DatabaseService {
     final db = await database;
     final result = await db.query('tasks');
     return result.map((json) => Tarefa.fromMap(json)).toList();
-  }
-
-  // Deletar uma tarefa
-  Future<int> deleteTask(int id) async {
-    final db = await database;
-    return db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
 
   // Exemplo de busca de tarefas para uma data (se quiser filtrar recorrência)
