@@ -1,6 +1,8 @@
+import 'package:agenda/screen/settings_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../models/tarefa.dart';
+import '../models/tarefa_ocorrencia.dart';
 import '../models/status.dart'; // Para poder manipular Status
 import 'add_task_screen.dart';
 
@@ -11,20 +13,48 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final DatabaseService _dbService = DatabaseService.instance;
-  List<Tarefa> _tarefas = [];
   DateTime _selectedDate = DateTime.now();
+
+  List<_TarefaComOcorrencia> _tarefasComOcorrencias = [];
 
   @override
   void initState() {
     super.initState();
-    _carregarTarefas();
+    _carregarTarefasDoDia(_selectedDate);
   }
 
-  Future<void> _carregarTarefas() async {
-    final tarefas = await _dbService.getTasksForDate(_selectedDate);
+  Future<void> _carregarTarefasDoDia(DateTime dia) async {
+    final tasks = await _dbService.getTasksForDate(dia);
+
+    // Para cada tarefa, pegar ou criar uma occurrence
+    final lista = <_TarefaComOcorrencia>[];
+    for (final t in tasks) {
+      // pega occurrence
+      final occ = await _dbService.getOccurrenceByDate(t.id!, _stripTime(dia));
+      // se nao existir, cria
+      if (occ == null) {
+        final nova = TarefaOcorrencia(
+          taskId: t.id!,
+          occurrenceDate: _stripTime(dia), // "strip" ou use date sem time
+          status: Status.pendente, // default
+        );
+        final newId = await _dbService.addOccurrence(nova);
+        final novaOcorrencia = nova.copyWith(id: newId);
+        // ou crie um construtor de copy
+        lista.add(_TarefaComOcorrencia(t, novaOcorrencia));
+      } else {
+        lista.add(_TarefaComOcorrencia(t, occ));
+      }
+    }
+
     setState(() {
-      _tarefas = tarefas;
+      _tarefasComOcorrencias = lista;
     });
+  }
+
+  // helper para remover hora/min/seg do DateTime
+  DateTime _stripTime(DateTime dt) {
+    return DateTime(dt.year, dt.month, dt.day);
   }
 
   // Navega até a tela de adicionar tarefa
@@ -33,8 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (context) => AddTaskScreen()),
     );
-    _carregarTarefas(); // Recarrega a lista após adicionar
+    _carregarTarefasDoDia(_selectedDate); // Recarrega a lista após adicionar
   }
+
 
   // Alterna o status da tarefa na ordem: pendente -> executando -> concluida -> pendente
   Status _proximoStatus(Status atual) {
@@ -49,24 +80,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Atualiza a tarefa no banco de dados com o novo status e recarrega
-  Future<void> _mudarStatus(Tarefa tarefa) async {
-    final novoStatus = _proximoStatus(tarefa.status);
-    final tarefaAtualizada = Tarefa(
-      id: tarefa.id,
-      nome: tarefa.nome,
-      descricao: tarefa.descricao,
-      dataCriacao: tarefa.dataCriacao,
-      dataVencimento: tarefa.dataVencimento,
-      prioridade: tarefa.prioridade,
+  Future<void> _mudarStatus(TarefaOcorrencia occ) async {
+    final novoStatus = _proximoStatus(occ.status);
+    final atualizado = TarefaOcorrencia(
+      id: occ.id,
+      taskId: occ.taskId,
+      occurrenceDate: occ.occurrenceDate,
       status: novoStatus,
-      categoria: tarefa.categoria,
-      tipoRecorrencia: tarefa.tipoRecorrencia,
-      diasRecorrentes: tarefa.diasRecorrentes,
-      diaDoMes: tarefa.diaDoMes,
     );
-
-    await _dbService.updateTask(tarefaAtualizada);
-    await _carregarTarefas();
+    await _dbService.updateOccurrence(atualizado);
+    // recarrega
+    _carregarTarefasDoDia(_selectedDate);
   }
 
   // Define a cor de fundo conforme o status
@@ -111,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             _selectedDate =
                                 _selectedDate.subtract(const Duration(days: 1));
                           });
-                          _carregarTarefas();
+                          _carregarTarefasDoDia(_selectedDate);
                         },
                       ),
                       Text(
@@ -125,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             _selectedDate =
                                 _selectedDate.add(const Duration(days: 1));
                           });
-                          _carregarTarefas();
+                          _carregarTarefasDoDia(_selectedDate);
                         },
                       ),
                     ],
@@ -136,140 +160,151 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Lista de Tarefas
             Expanded(
-              child: _tarefas.isEmpty
+              child: _tarefasComOcorrencias.isEmpty
                   ? const Center(child: Text('Nenhuma tarefa encontrada.'))
                   : ListView.builder(
-  itemCount: _tarefas.length,
-  itemBuilder: (context, index) {
-    final tarefa = _tarefas[index];
+                      itemCount: _tarefasComOcorrencias.length,
+                      itemBuilder: (context, index) {
+                        final item = _tarefasComOcorrencias[index];
+                        final tarefa = item.tarefa;
+                        final occ = item.occurrence;
 
-    // Envolve o item com um Dismissible
-    return Dismissible(
-      key: UniqueKey(),
-      direction: DismissDirection.endToStart, 
-      // arrastar somente para a esquerda (end to start)
+                        return Dismissible(
+                          key: UniqueKey(),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child:
+                                const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          confirmDismiss: (direction) async {
+                            // Se quiser perguntar antes de deletar
+                            if (tarefa.tipoRecorrencia != null) {
+                              // Se a tarefa é recorrente, por ex.
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Tarefa recorrente'),
+                                  content: const Text(
+                                      'Você tem certeza que deseja deletar esta tarefa recorrente '
+                                      'de todos os dias?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      child: const Text('Cancelar'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Deletar'),
+                                    ),
+                                  ],
+                                ),
+                              );
 
-      background: Container(
-        color: Colors.red,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
+                              return confirm ?? false;
+                            } else {
+                              // Se não é recorrente, pode perguntar de modo genérico ou nem perguntar
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Deletar tarefa'),
+                                  content: const Text(
+                                      'Deseja realmente deletar esta tarefa?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      child: const Text('Cancelar'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Deletar'),
+                                    ),
+                                  ],
+                                ),
+                              );
 
-      // confirmDismiss é chamado antes de efetivar a remoção
-      confirmDismiss: (direction) async {
-        // Se quiser perguntar antes de deletar
-        if (tarefa.tipoRecorrencia != null) {
-          // Se a tarefa é recorrente, por ex.
-          final confirm = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Tarefa recorrente'),
-              content: const Text(
-                'Você tem certeza que deseja deletar esta tarefa recorrente '
-                'de todos os dias?'
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancelar'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Deletar'),
-                ),
-              ],
-            ),
-          );
+                              return confirm ?? false;
+                            }
+                          },
+                          onDismissed: (direction) async {
+                            // Remove do banco
+                            await _dbService.deleteTask(tarefa.id!);
 
-          return confirm ?? false;
-        } else {
-          // Se não é recorrente, pode perguntar de modo genérico ou nem perguntar
-          final confirm = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Deletar tarefa'),
-              content: const Text(
-                'Deseja realmente deletar esta tarefa?'
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancelar'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Deletar'),
-                ),
-              ],
-            ),
-          );
-
-          return confirm ?? false;
-        }
-      },
-
-      // onDismissed é chamado depois de confirmDismiss (se confirm for true)
-      onDismissed: (direction) async {
-        // Remove do banco
-        await _dbService.deleteTask(tarefa.id!);
-
-        // Remove da lista local (para feedback imediato)
-        setState(() {
-          _tarefas.removeAt(index);
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tarefa "${tarefa.nome}" foi deletada')),
-        );
-      },
-
-      child: _buildTaskItem(tarefa),
-    );
-  },
-),
-
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      'Tarefa "${tarefa.nome}" foi deletada')),
+                            );
+                            setState(() {
+                              _tarefasComOcorrencias.removeAt(index);
+                            });
+                          },
+                          child: _buildTaskItem(tarefa, occ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
       ),
 
       bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.task),
-            label: 'Tarefa',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Configurações',
-          ),
-        ],
-        onTap: (index) {
-          if (index == 1) {
-            _irParaAdicionarTarefa();
-          }
-        },
-      ),
+  items: const [
+    BottomNavigationBarItem(
+      icon: Icon(Icons.home),
+      label: 'Home',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.task),
+      label: 'Tarefa',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.settings),
+      label: 'Configurações',
+    ),
+  ],
+  onTap: (index) {
+    if (index == 1) {
+      _irParaAdicionarTarefa();
+    } else if (index == 2) {
+      // Navega para a tela de configurações
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const SettingsScreen()),
+      );
+    }
+  },
+),
+
     );
   }
 
-  // Construímos o item de tarefa com expansão e botão de status
-  Widget _buildTaskItem(Tarefa tarefa) {
+  Widget _buildTaskItem(Tarefa tarefa, TarefaOcorrencia occ) {
     return Card(
-      color: _getStatusColor(tarefa.status),
+      color: _getStatusColor(occ.status), // fundo dependendo do status
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: ExpansionTile(
+        // Leading (à esquerda) é opcional. Pode pôr um ícone representando a tarefa
+        leading: const Icon(Icons.list_alt, size: 30, color: Colors.black87),
+
+        // Título principal (sem estar expandido)
         title: Text(
           tarefa.nome,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
         ),
 
-        // Botão para alternar status
+        // Trailing fixo, um botão para mudar status
         trailing: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
@@ -278,37 +313,72 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          onPressed: () => _mudarStatus(tarefa),
-          child: Text(
-            tarefa.status.toString().split('.').last,
-            // exibe "pendente", "executando", "concluida"
-            style: const TextStyle(fontSize: 14),
-          ),
+          onPressed: () => _mudarStatus(occ),
+          child: Text(occ.status.toString().split('.').last),
         ),
 
+        // Espaçamento para o conteúdo ao expandir
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+
+        // Alinhamentos ao expandir
+        expandedAlignment: Alignment.centerLeft,
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+
+        // Conteúdo que aparece ao expandir
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.description, color: Colors.grey),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tarefa.descricao.isEmpty ? 'Sem descrição' : tarefa.descricao,
+                  style: const TextStyle(fontSize: 15, color: Colors.black87),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.priority_high, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(
+                'Prioridade: ${tarefa.prioridade.toString().split('.').last}',
+                style: const TextStyle(fontSize: 15),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.category, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(
+                'Categoria: ${tarefa.categoria.toString().split('.').last}',
+                style: const TextStyle(fontSize: 15),
+              ),
+            ],
+          ),
+          if (tarefa.dataVencimento != null) ...[
+            const SizedBox(height: 8),
+            Row(
               children: [
+                const Icon(Icons.calendar_today_outlined, color: Colors.grey),
+                const SizedBox(width: 8),
                 Text(
-                  tarefa.descricao,
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Prioridade: ${tarefa.prioridade.toString().split('.').last}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Categoria: ${tarefa.categoria.toString().split('.').last}',
-                  style: const TextStyle(fontSize: 14),
+                  'Vencimento: '
+                  '${tarefa.dataVencimento!.day}/'
+                  '${tarefa.dataVencimento!.month}/'
+                  '${tarefa.dataVencimento!.year}',
+                  style: const TextStyle(fontSize: 15),
                 ),
               ],
             ),
-          ),
+          ],
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -326,4 +396,10 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     return weekdays[date.weekday - 1];
   }
+}
+
+class _TarefaComOcorrencia {
+  final Tarefa tarefa;
+  final TarefaOcorrencia occurrence;
+  _TarefaComOcorrencia(this.tarefa, this.occurrence);
 }

@@ -17,7 +17,8 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final onboarding = prefs.getBool("onboarding")??false;
 
-  
+  WidgetsFlutterBinding.ensureInitialized();
+ 
   runApp( MyApp(onboarding: onboarding));
 }
 
