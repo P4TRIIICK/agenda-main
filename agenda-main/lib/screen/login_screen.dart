@@ -28,13 +28,11 @@ class _LoginPageState extends State<LoginPage> {
     final result = await LoginUtils.attemptLogin(email, pass);
 
     if (result == null) {
-      // Login deu certo
-      // Navega ou fecha a tela atual (depende do seu fluxo)
+
       Navigator.pop(context);
-      // Ou, se quiser ir direto para HomeScreen:
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (ctx) => HomeScreen()));
+
     } else {
-      // result contém mensagem de erro
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result),

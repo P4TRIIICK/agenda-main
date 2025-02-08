@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../models/tarefa.dart';
 import '../models/tarefa_ocorrencia.dart';
-import '../models/status.dart'; // Para poder manipular Status
+import '../models/status.dart'; 
 import 'add_task_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -26,21 +26,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _carregarTarefasDoDia(DateTime dia) async {
     final tasks = await _dbService.getTasksForDate(dia);
 
-    // Para cada tarefa, pegar ou criar uma occurrence
     final lista = <_TarefaComOcorrencia>[];
     for (final t in tasks) {
-      // pega occurrence
+
       final occ = await _dbService.getOccurrenceByDate(t.id!, _stripTime(dia));
-      // se nao existir, cria
       if (occ == null) {
         final nova = TarefaOcorrencia(
           taskId: t.id!,
-          occurrenceDate: _stripTime(dia), // "strip" ou use date sem time
-          status: Status.pendente, // default
+          occurrenceDate: _stripTime(dia),
+          status: Status.pendente, 
         );
         final newId = await _dbService.addOccurrence(nova);
         final novaOcorrencia = nova.copyWith(id: newId);
-        // ou crie um construtor de copy
         lista.add(_TarefaComOcorrencia(t, novaOcorrencia));
       } else {
         lista.add(_TarefaComOcorrencia(t, occ));
@@ -52,22 +49,18 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // helper para remover hora/min/seg do DateTime
   DateTime _stripTime(DateTime dt) {
     return DateTime(dt.year, dt.month, dt.day);
   }
 
-  // Navega até a tela de adicionar tarefa
   void _irParaAdicionarTarefa() async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => AddTaskScreen()),
     );
-    _carregarTarefasDoDia(_selectedDate); // Recarrega a lista após adicionar
+    _carregarTarefasDoDia(_selectedDate);
   }
 
-
-  // Alterna o status da tarefa na ordem: pendente -> executando -> concluida -> pendente
   Status _proximoStatus(Status atual) {
     switch (atual) {
       case Status.pendente:
@@ -79,7 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Atualiza a tarefa no banco de dados com o novo status e recarrega
   Future<void> _mudarStatus(TarefaOcorrencia occ) async {
     final novoStatus = _proximoStatus(occ.status);
     final atualizado = TarefaOcorrencia(
@@ -89,30 +81,26 @@ class _HomeScreenState extends State<HomeScreen> {
       status: novoStatus,
     );
     await _dbService.updateOccurrence(atualizado);
-    // recarrega
     _carregarTarefasDoDia(_selectedDate);
   }
 
-  // Define a cor de fundo conforme o status
   Color _getStatusColor(Status status) {
     switch (status) {
       case Status.pendente:
-        return Colors.white; // cor padrão (ou um cinza bem claro)
+        return Colors.white; 
       case Status.executando:
-        return Colors.orange.shade100; // laranja claro
+        return Colors.orange.shade100; 
       case Status.concluida:
-        return Colors.green.shade100; // verde claro
+        return Colors.green.shade100;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Removemos appBar (ou mantemos se quiser algo minimal)
       body: SafeArea(
         child: Column(
           children: [
-            // Cabeçalho (dia da semana + data)
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -158,7 +146,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Lista de Tarefas
             Expanded(
               child: _tarefasComOcorrencias.isEmpty
                   ? const Center(child: Text('Nenhuma tarefa encontrada.'))
@@ -180,9 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const Icon(Icons.delete, color: Colors.white),
                           ),
                           confirmDismiss: (direction) async {
-                            // Se quiser perguntar antes de deletar
                             if (tarefa.tipoRecorrencia != null) {
-                              // Se a tarefa é recorrente, por ex.
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
@@ -206,7 +191,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                               return confirm ?? false;
                             } else {
-                              // Se não é recorrente, pode perguntar de modo genérico ou nem perguntar
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
@@ -231,7 +215,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
                           },
                           onDismissed: (direction) async {
-                            // Remove do banco
                             await _dbService.deleteTask(tarefa.id!);
 
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -271,7 +254,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == 1) {
       _irParaAdicionarTarefa();
     } else if (index == 2) {
-      // Navega para a tela de configurações
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const SettingsScreen()),
@@ -285,16 +267,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTaskItem(Tarefa tarefa, TarefaOcorrencia occ) {
     return Card(
-      color: _getStatusColor(occ.status), // fundo dependendo do status
+      color: _getStatusColor(occ.status), 
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ExpansionTile(
-        // Leading (à esquerda) é opcional. Pode pôr um ícone representando a tarefa
         leading: const Icon(Icons.list_alt, size: 30, color: Colors.black87),
-
-        // Título principal (sem estar expandido)
         title: Text(
           tarefa.nome,
           style: const TextStyle(
@@ -304,7 +283,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // Trailing fixo, um botão para mudar status
         trailing: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
@@ -317,14 +295,11 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Text(occ.status.toString().split('.').last),
         ),
 
-        // Espaçamento para o conteúdo ao expandir
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
 
-        // Alinhamentos ao expandir
         expandedAlignment: Alignment.centerLeft,
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
 
-        // Conteúdo que aparece ao expandir
         children: [
           const SizedBox(height: 8),
           Row(

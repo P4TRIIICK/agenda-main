@@ -13,7 +13,6 @@ class TarefaOcorrencia {
     required this.status,
   });
 
-  // Aqui está o copyWith
   TarefaOcorrencia copyWith({
     int? id,
     int? taskId,

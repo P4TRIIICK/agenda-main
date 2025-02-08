@@ -2,7 +2,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/tarefa.dart';
 import '../models/tarefa_ocorrencia.dart';
-// ... importações necessárias
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._();
@@ -16,14 +15,13 @@ class DatabaseService {
     return _database!;
   }
 
-  // Se o seu db version já for 1, suba para 2:
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'tasks.db');
 
     return openDatabase(
       path,
-      version: 2,            // Aumente para 2
+      version: 2,          
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -72,12 +70,10 @@ class DatabaseService {
   return db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Se alguém já tiver a versão antiga
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE tasks ADD COLUMN diaDoMes INTEGER');
 
-      // Também crie a tabela task_occurrences
       await db.execute('''
         CREATE TABLE IF NOT EXISTS task_occurrences (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,20 +100,10 @@ class DatabaseService {
     return result.map((json) => Tarefa.fromMap(json)).toList();
   }
 
-  // Exemplo de busca de tarefas para uma data (se quiser filtrar recorrência)
-  // No database_service.dart
-
   Future<List<Tarefa>> getTasksForDate(DateTime date) async {
     final db = await database;
 
-    // 1. Buscar tarefas sem recorrência que tenham dataVencimento = date (ajuste se quiser a parte "date(dataVencimento) = date(...)")
-    // 2. Buscar tarefas com recorrência = "semanal" e dayOfWeek
-    // 3. Buscar tarefas com recorrência = "mensal" e dayOfMonth
-    // ...
-    // Junte tudo numa lista e retorne. (Isso você já faz.)
-
-    // Exemplo simplificado que já existia:
-    final int weekday = date.weekday % 7; // 0=Dom, 1=Seg etc., se preferir
+    final int weekday = date.weekday % 7; 
     final result = await db.rawQuery('''
       SELECT * FROM tasks
       WHERE (tipoRecorrencia IS NULL AND date(dataVencimento) = ?)

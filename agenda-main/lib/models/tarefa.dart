@@ -12,10 +12,9 @@ class Tarefa {
   final Status status;
   final Categoria categoria;
 
-  // Para recorrência
-  final String? tipoRecorrencia;     // null, "semanal" ou "mensal"
-  final List<int>? diasRecorrentes;  // ex.: [0, 2, 4] para dom, ter, qui
-  final int? diaDoMes;               // ex.: 10 para todo dia 10 do mês
+  final String? tipoRecorrencia;    
+  final List<int>? diasRecorrentes; 
+  final int? diaDoMes;               
 
   Tarefa({
     this.id,
@@ -38,12 +37,12 @@ class Tarefa {
       'descricao': descricao,
       'dataCriacao': dataCriacao.toIso8601String(),
       'dataVencimento': dataVencimento?.toIso8601String(),
-      'prioridade': prioridade.toString(),  // "Prioridade.alta", etc.
-      'status': status.toString(),          // "Status.pendente", etc.
-      'categoria': categoria.toString(),    // "Categoria.trabalho", etc.
-      'tipoRecorrencia': tipoRecorrencia,   // null, 'semanal', 'mensal'
-      'diasRecorrentes': diasRecorrentes?.join(','), // ex.: "0,2,4"
-      'diaDoMes': diaDoMes,                 // ex.: 10
+      'prioridade': prioridade.toString(),  
+      'status': status.toString(),         
+      'categoria': categoria.toString(),   
+      'tipoRecorrencia': tipoRecorrencia,  
+      'diasRecorrentes': diasRecorrentes?.join(','),
+      'diaDoMes': diaDoMes,                 
     };
   }
 
@@ -72,7 +71,7 @@ class Tarefa {
               .map((e) => int.parse(e))
               .toList()
           : null,
-      diaDoMes: map['diaDoMes'], // pode ser null
+      diaDoMes: map['diaDoMes'],
     );
   }
 }

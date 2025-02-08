@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:agenda/services/auth_service.dart';
-// Se for salvar o horário em SharedPreferences, importar:
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -11,19 +10,18 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _auth = AuthService();  // Se você tiver um AuthService para logout
+  final _auth = AuthService();  
 
-  TimeOfDay? _selectedTime;     // Hora escolhida
-  bool _isLoadingTime = true;   // Para indicar se estamos carregando a hora
+  TimeOfDay? _selectedTime;     
+  bool _isLoadingTime = true;  
 
   @override
   void initState() {
     super.initState();
-    _loadPreferredTime(); // Carrega horário salvo
+    _loadPreferredTime(); 
   }
 
   Future<void> _loadPreferredTime() async {
-    // Exemplo: salvamos no SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final hour = prefs.getInt('preferred_hour');
     final minute = prefs.getInt('preferred_minute');
@@ -47,7 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (picked != null) {
       setState(() => _selectedTime = picked);
 
-      // Salva no SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('preferred_hour', picked.hour);
       await prefs.setInt('preferred_minute', picked.minute);
@@ -55,14 +52,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _logout() async {
-    // Chama logout do AuthService
-    await _auth.signout(); // ou signOut(), conforme seu método
-    // Agora decide para onde vai redirecionar após logout:
-    // Se você tem Wrapper, pode usar pushReplacement
+    await _auth.signout(); 
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/'); 
-    // ou se quiser mandar direto pra LoginPage: 
-    // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage()));
   }
 
   @override
@@ -74,10 +66,8 @@ Widget build(BuildContext context) {
     body: Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
-        // Distribui os elementos entre o topo e a base
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Parte superior: configurações de horário
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -94,11 +84,9 @@ Widget build(BuildContext context) {
                 trailing: const Icon(Icons.access_time),
                 onTap: _pickTime,
               ),
-              // Você pode incluir outras configurações aqui
             ],
           ),
 
-          // Botão de logout na base
           ElevatedButton.icon(
             onPressed: _logout,
             icon: const Icon(Icons.logout),
