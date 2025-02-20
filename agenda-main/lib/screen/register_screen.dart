@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:agenda/utils/register_utils.dart';
+import 'package:agenda/services/auth_service.dart';
 import 'package:agenda/services/wrapper.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -10,35 +10,14 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  final _auth = AuthService();
+
+  // Controladores de texto
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
 
   bool _isLoading = false;
-
-  Future<void> _signup() async {
-    setState(() => _isLoading = true);
-
-    final result = await RegisterUtils.attemptRegister(
-      _name.text.trim(),
-      _email.text.trim(),
-      _password.text.trim(),
-    );
-
-    setState(() => _isLoading = false);
-
-    if (result == null) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const Wrapper()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result), backgroundColor: Colors.red),
-      );
-    }
-  }
 
   @override
   void dispose() {
@@ -47,81 +26,150 @@ class _RegisterPageState extends State<RegisterPage> {
     _password.dispose();
     super.dispose();
   }
+
+  Future<void> _signup() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = await _auth.createUserWithEmailAndPassword(
+        _email.text.trim(),
+        _password.text.trim(),
+      );
+
+      if (user != null) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Wrapper()),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Erro ao criar conta.")),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Responsividade
+    final size = MediaQuery.of(context).size;
+    final verticalSpacing = size.height * 0.02;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Cadastro"),
-      ),
+      appBar: AppBar(title: const Text("Cadastro")),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+        child: Container(
+          width: size.width,
+          height: size.height,
+          padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            // Removi mainAxisAlignment.center para não centralizar verticalmente
             children: [
-              const Text(
+              // Espaço inicial do topo
+              SizedBox(height: verticalSpacing * 2),
+
+              Text(
                 "Crie sua conta",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: size.height * 0.035,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: verticalSpacing),
 
-              TextField(
+              _buildTextField(
                 controller: _name,
-                decoration: const InputDecoration(
-                  hintText: "Nome",
-                  border: OutlineInputBorder(),
-                ),
+                label: "Nome",
+                size: size,
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: verticalSpacing),
 
-              TextField(
+              _buildTextField(
                 controller: _email,
+                label: "E-mail",
+                size: size,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  hintText: "E-mail",
-                  border: OutlineInputBorder(),
-                ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: verticalSpacing),
 
-              TextField(
+              _buildTextField(
                 controller: _password,
-                decoration: const InputDecoration(
-                  hintText: "Senha",
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
+                label: "Senha",
+                obscure: true,
+                size: size,
               ),
-              const SizedBox(height: 40),
+              SizedBox(height: verticalSpacing * 2),
 
-              SizedBox(
-                width: 200,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _signup,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Cadastrar"),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              SizedBox(
-                width: 200,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "Já tem uma conta? Faça Login",
-                    style: TextStyle(color: Colors.blue, fontSize: 10),
+              // Botão de Cadastrar
+              Center(
+                child: SizedBox(
+                  width: size.width * 0.5,
+                  height: size.height * 0.07,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _signup,
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            "Cadastrar",
+                            style: TextStyle(fontSize: size.height * 0.025),
+                          ),
                   ),
                 ),
               ),
+              SizedBox(height: verticalSpacing * 0.5),
+
+              // Botão "Já tem conta?"
+              Center(
+                child: SizedBox(
+                  width: size.width * 0.5,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      "Já tem uma conta? Faça Login",
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontSize: size.height * 0.015,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Espaço final
+              SizedBox(height: verticalSpacing * 2),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  // Widget auxiliar para campo de texto
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required Size size,
+    bool obscure = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          fontSize: size.height * 0.022,
+          color: Colors.grey[700],
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      style: TextStyle(fontSize: size.height * 0.022),
     );
   }
 }
